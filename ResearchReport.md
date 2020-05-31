@@ -45,5 +45,184 @@
 
 &emsp;&emsp;目前控制流分析使用非常普遍，在很多别的分析过程中也采用它作为基本的技术，程序控制流图的引入提高了程序分析的精确性。
 
+&emsp;&emsp;为了实现更好的实现控制流分析，这里我们实现了一个基于LLVM Pass的跳转基本块寻找程序。
+
+具体的代码实现如下：
+```c
+#include "llvm/Pass.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Instruction.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DebugInfoMetadata.h"
+#include "llvm/IR/CFG.h"
+#include "llvm/Support/raw_ostream.h"
+#include <iostream>
+#include <string>
+#include <fstream>
+#include <vector>
+#include <algorithm>
+
+using namespace llvm;
+
+namespace {
+  
+  struct SwitchBB : public ModulePass {
+    static char ID; // Pass identification, replacement for typeid
+    SwitchBB() : ModulePass(ID) {}
+    std::string get_block_reference(BasicBlock *BB){ //基本块信息获取
+        std::string block_address;
+        raw_string_ostream string_stream(block_address);
+        BB->printAsOperand(string_stream, false);
+        return string_stream.str();
+    }
+    virtual bool runOnModule(Module &M) {
+        std::string filename = M.getSourceFileName();
+        std::string dir_info = "";
+        std::string outfile_1 = ""; //输出内容1
+        errs()<<filename<<"\n";
+        std::string name = "output1.txt";
+        std::ofstream outfile1; //输出流1
+        errs()<<dir_info + name<<"\n"; //写入的txt文件
+        for(Module::iterator Mit=M.begin(),Mite=M.end();Mit!=Mite;Mit++){
+            StringRef function_name = Mit->getName();
+            std::ofstream outfile2; //输出流2
+            std::string dir_edge = "";
+            std::string name_1 = "output2.txt";
+            std::string outfile_2 = ""; //输出内容2
+            errs()<<dir_edge + name_1<<"\n";
+            unsigned this_function_has_switch = 0;
+            StringRef cur_switch_block;
+            std::vector<int> cur_switch_line;
+            for(llvm::Function::iterator Fit=Mit->begin(),Fite=Mit->end();Fit!=Fite;Fit++){
+                BasicBlock* bb_0 = dyn_cast<BasicBlock>(&*Fit);
+                StringRef bb_name = get_block_reference(bb_0);
+                std::vector<int> bb_line;
+                for(BasicBlock::iterator Bit=Fit->begin(),Bite=Fit->end();Bit!=Bite;Bit++){
+                    const DebugLoc &location = Bit->getDebugLoc();//??
+                    Instruction* curr_inst = dyn_cast<Instruction>(&*Bit);
+                    if(isa<Instruction>(&*Bit)){//??
+                        if(bool(location)){
+                            bb_line.push_back(location.getLine());//??
+                        }
+                    }
+                    SwitchInst* switchInst = dyn_cast<SwitchInst>(&*Bit);//??
+                    if(isa<SwitchInst>(&*Bit)){
+                        this_function_has_switch = 1;
+                        unsigned line_of_switch = location.getLine();
+                        errs()<<"line of switch:"<<line_of_switch<<"\n";
+                        cur_switch_block = bb_name;
+                        //修改输出内容1
+                        outfile_1 = outfile_1+"function"+function_name.str()+"\nbasic_block:"+bb_name.str()+"\nswitch_line:"+std::to_string(line_of_switch)+"\nswitch_block";
+                        sort(bb_line.begin(),bb_line.end());
+                        bb_line.erase(unique(bb_line.begin(), bb_line.end()), bb_line.end());
+                        for(int i=0;i<bb_line.size();++i){
+                            outfile_1 = outfile_1+std::to_string(bb_line[i])+" ";
+                        }
+                        outfile_1 += "\n";
+                        cur_switch_line.assign(bb_line.begin(), bb_line.end());
+                        for(Function::iterator f = Mit->begin(),fite = Mit->end();f!=fite;f++){//??
+                            BasicBlock* bb_1 = dyn_cast<BasicBlock>(&*f);
+                            StringRef bb_name = get_block_reference(bb_1);
+                            std::vector<int> bb_line_case;
+                            for(BasicBlock::iterator bit=f->begin(),bite=f->end();bit!=bite;bit++){
+                                const DebugLoc &location = bit->getDebugLoc();
+                                Instruction* curr_inst = dyn_cast<Instruction>(&*bit);
+                                if(isa<Instruction>(&*bit)){
+                                    if(bool(location)){
+                                        bb_line_case.push_back(location.getLine());
+                                    }
+                                }
+                            }
+                            unsigned flag = 0;
+                            sort(bb_line_case.begin(),bb_line_case.end());
+                            bb_line_case.erase(unique(bb_line_case.begin(), bb_line_case.end()), bb_line_case.end());
+                            BasicBlock* bb = dyn_cast<BasicBlock>(&*f);
+                            for(BasicBlock *Pred : predecessors(bb)){
+                                std::string pre_name = get_block_reference(Pred);
+                                if(pre_name.compare(cur_switch_block) == 0){
+                                    flag = 1;
+                                    break;
+                                }
+                            }
+                            if(flag == 1){
+                            outfile_2+=std::to_string(cur_switch_line[cur_switch_line.size()-1])+" -> "+std::to_string(bb_line_case[0])+"\n";
+                            }
+                        }//??
+                        
+                    }
+                }
+            }
+            errs()<<"out2:"<<outfile_2<<"\n";
+            if(outfile_2 != ""){
+                outfile2.open(dir_edge + name_1);
+                outfile2<<outfile_2;
+                outfile2.close();
+            }
+        }
+        
+        //outfile_1 = "Test.";
+        errs()<<"out1:"<<outfile_1<<"\n";
+        if(outfile_1 != ""){
+            outfile1.open(dir_info + name);
+            outfile1<<outfile_1;
+            outfile1.close();
+        }
+        return false;
+    }
+  };
+}
+
+char SwitchBB::ID = 0;
+static RegisterPass<SwitchBB> X("SwitchBB", "SWITCH.");
+```
+以一个简单c语言程序来展示该LLVM Pass的作用
+
+```c
+#include<stdio.h>
+#include<stdlib.h>
+int main(){
+    int n = 5;
+    switch(n){
+        case 1:break;
+        case 2:break;
+        case 3:break;
+        case 5:printf("get it."); break;
+        default:break;
+    }
+    return 0;
+}
+```
+
+利用Clang把C语言代码生成为LLVM字节码的文本形式 .ll 文件
+
+```bash
+clang test.c  -O0 -g -S -emit-llvm -o test.ll 
+```
+再利用LLVM Pass编译出来的 .so 文件对LLVM字节码进行分析
+```bash
+opt -load /root/llvm/build/src/libTest.so -SwitchBB test.ll
+```
+最终生成的结果如下：
+
+output1.txt
+```bash
+functionmain
+basic_block:%0
+switch_line:5
+switch_block:4 5 
+```
+output2.txt
+```bash
+5 -> 6
+5 -> 7
+5 -> 8
+5 -> 9
+5 -> 10
+```
+output1展示了switch基本块的信息，output2展示了switch语句与case语句的对应关系
 
 ## 4.参考文献
