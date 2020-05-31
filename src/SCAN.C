@@ -185,7 +185,7 @@ TokenType getToken(void)
          state = DONE;
          currentToken = ERROR;
          break;
-     }
+     }//end switch
      if ((save) && (tokenStringIndex <= MAXTOKENLEN))
        tokenString[tokenStringIndex++] = (char) c;
      if (state == DONE)
@@ -193,7 +193,7 @@ TokenType getToken(void)
        if (currentToken == ID)
          currentToken = reservedLookup(tokenString);
      }
-   }
+   }//end while
    if (TraceScan) {
      fprintf(listing,"\t%d: ",lineno);
      printToken(currentToken,tokenString);
