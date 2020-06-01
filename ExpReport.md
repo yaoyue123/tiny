@@ -123,6 +123,59 @@ TINY+静态检查各类语义错误。TINY+语义类型检查是通过后序遍�
 #### 2.4.2 对于语句节点的检查
 对于语句节点的类型检查主要看其子节点是否满足类型要求。对于Read语句，这里被读出的变量必须自动成为Int类型，因此没有必要进行类型检查。其他语句种类需要一些形式的类型检查If和Repeat语句需要检查它们的测试表达式，确保它们是类型Boolean，而Write、Assign和Return语句需要检查确定被写入、赋值或返回的表达式是整型的。  
 
+```c
+//analyze.c，语义分析代码
+static void checkNode(TreeNode * t)
+{ switch (t->nodekind)
+    //对于表达式节点的检查
+  { case ExpK:
+      switch (t->kind.exp)
+      { case OpK:
+          if ((t->child[0]->type != Integer) ||
+              (t->child[1]->type != Integer))
+            typeError(t,"Op applied to non-integer");
+          if ((t->attr.op == EQ) || (t->attr.op == LT))
+            t->type = Boolean;
+          else
+            t->type = Integer;
+          break;
+        case ConstK:
+        case IdK:
+          t->type = Integer;
+          break;
+        default:
+          break;
+      }
+      break;
+    //对于语句节点的检查
+    case StmtK:
+      switch (t->kind.stmt)
+      { case IfK:
+          if (t->child[0]->type == Integer)
+            typeError(t->child[0],"if test is not Boolean");
+          break;
+        case AssignK:
+          if (t->child[0]->type != Integer)
+            typeError(t->child[0],"assignment of non-integer value");
+          break;
+        case WriteK:
+          if (t->child[0]->type != Integer)
+            typeError(t->child[0],"write of non-integer value");
+          break;
+        case RepeatK:
+          if (t->child[1]->type == Integer)
+            typeError(t->child[1],"repeat test is not Boolean");
+          break;
+        default:
+          break;
+      }
+      break;
+    default:
+      break;
+
+  }
+}
+```
 
 ### 2.5 代码生成
 TINY语言的代码生成的目标代码可直接用于易于模拟的简单机器。这个机器称为TM(Tiny Machine)。TM由只读指令存储区、数据区和8个通用寄存器构成。它们都使用非负整数地址且以0开始。寄存器7为程序记数器，它也是唯一的专用寄存器。
