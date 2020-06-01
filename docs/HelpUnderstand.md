@@ -172,3 +172,130 @@ SCAN.C定义的函数当中，唯一一个可以被别的文件调用的函数
         13: reserved word: end
         14: EOF
 ```
+
+### PARSE.H PARSE.C
+
+#### syntaxError
+说明遇到语法错误，打印行号和错误信息，把初值为FALSE的Error变量置为TRUE
+
+#### match
+传入的参数为预期的token，将token与预期的token对比，如果不匹配就会报错。同时，如果匹配的话，match会自动让token的值变成下一个token。
+
+#### 一些函数的调用关系
+PARSE.H中能被其他文件调用的应该只有parse函数，但parse函数又调用了其他在PARSE.C中定义的函数，而调用的函数又调用了其他函数。这个多层调用可用下图表示：
+```mermaid
+graph TD;
+    parse-->stmt_sequence;
+    stmt_sequence-->statement;
+    statement-->if_stmt;
+    statement-->repeat_stmt;
+    statement-->assign_stmt;
+    statement-->read_stmt;
+    statement-->write_stmt;
+    if_stmt-->exp;
+    if_stmt-->stmt_sequence;
+    repeat_stmt-->exp;
+    repeat_stmt-->stmt_sequence;
+    assign_stmt-->exp;
+    write_stmt-->exp;
+    exp-->simple_exp;
+    simple_exp-->term;
+    term-->factor;
+    factor-->exp;
+```
+这些代码应该是对着TINY语言的文法写的。于是找到TINY的上下文无关文法：
+```
+program		->  stmt-sequence
+stmt-sequence	->  stmt-sequence ; statement | statement
+statement	->  if-stmt | repeat-stmt | assign-stmt | read-stmt | write-stmt
+if-stmt	->  if exp then stmt-sequence end | if exp then stmt-sequence else stmt-sequence end
+repeat-stmt	->  repeat stmt-sequence until exp
+assign-stmt	->  identifier:=exp
+read-stmt	->  read identifier
+write-stmt	->  write exp
+exp	->  simple-exp comparison-op simple-exp | simple-exp
+comparison-op ->  < | =
+simple-exp  ->  simple-exp addop term | term
+addop	->  + | -
+term	->  term mulop factor | factor
+mulop	->  * | /
+factor	->  (exp) | number | identifier
+
+```
+对比后发现，确实这些调用关系可以和TINY的上下文无关文法对应起来。这种将非终结符写成函数的做法很像递归下降分析法。
+
+#### parse
+parse对应文法中的非终结符program，首先读取一个token，然后调用stmt_sequence，这个举动对应产生式program -> stmt-sequence
+
+#### stmt_sequence
+这个函数对应的产生式为：stmt-sequence -> statement ; statement | statement  
+这个函数的代码中while循环的条件有些难以理解，所以试试求stmt-sequence的FIRST和FOLLOW集  
+FIRST集：IF, REPEAT, ID, READ, WRITE  
+FOLLOW集：ENDFILE, END, ELSE, UNTIL, SEMI  
+进一步发现，statement的FIRST和FOLLOW集和它一样
+
+这是一个左递归，最终总可以变成statement {; statement}的形式  
+在接受了一个statement检测后，要看跟在statement后面的是什么。  
+如果是ENDFILE, END, ELSE, UNTIL，说明这个stmt-sequence已经结束了，于是就返回了。  
+如果这个statement后面跟着的是分号，那么说明还在stmt-sequence里面，于是继续分析后面的statement，把后面的statement作为前面statement结点的sibling。最终同一个stmt-sequence中的statement会通过sibling的连接构成一串。
+
+#### statement
+这个函数对应的产生式为：statement -> if-stmt | repeat-stmt | assign-stmt | read-stmt | write-stmt  
+这个产生式每一个选项开头的token都不一样，且只有可能为IF, REPEAT, ID, READ, WRITE，所以根据不同的token进入不同的分支  
+最终事成之后，返回的是和下一级相同的根节点。具体说来，比如说这是个if语句，if的根节点是IfK类型，那么这个函数返回的根节点也会是IfK类型。
+
+#### if_stmt
+这个函数对应的产生式为：if-stmt -> if exp then stmt-sequence end | if exp then stmt-sequence else stmt-sequence end  
+这个生成的IfK结点视情况会有2-3个子结点，对应 exp stmt-sequence [stmt-sequence]
+
+#### repeat_stmt
+这个函数对应的产生式为：repeat-stmt -> repeat stmt-sequence until exp  
+生成的树的结点类型为RepeatK，有两个子结点，对应 stmt-sequence exp
+
+#### assign_stmt
+这个函数对应的产生式为：assign-stmt -> identifier:=exp  
+这个函数生成的树结点类型为AssignK，attr为被赋值变量identifier，有一个子结点exp
+
+#### read_stmt
+这个函数对应的产生式为：read-stmt -> read identifier  
+这个函数生成的树结点类型为ReadK，attr为identifier的名字
+
+#### write_stmt
+这个函数对应的产生式为：write-stmt -> write exp  
+这个函数生成的树结点类型为WriteK，有一个子结点，对应exp
+
+#### exp
+这个函数对应的产生式为：exp -> simple-exp comparison-op simple-exp | simple-exp  
+这个要分情况讨论：  
+如果在接收了一个simple-exp之后，下一个token不是LT或EQ，说明这个exp仅仅会被归约成simple-exp，因此，返回的结果直接就是和simple-exp一样  
+如果检测到了LT或EQ，那么这个函数返回的树结点类型就是OpK，attr就指明了这个comparison-op的类型，两个子结点就是两个simple-exp
+
+#### simple_exp
+这个函数对应的产生式为：simple-exp -> simple-exp addop term | term  
+这是一个左递归，最终可以变成term {addop term}的形式  
+于是，先检测一个term，然后再是一个while循环，不停地检测addop term，像这样构造树。  
+举一个例子说明可能更直观一些。假如有一个simple-exp，形式为：
+```
+t1 a1 t2 a2 t3 a3 t4
+```
+其中，t表示term，a表示addop，那么根据这个算法最终得到的树的结构为：
+```mermaid
+graph TD;
+  a3---a2;
+  a3---t4;
+  a2---a1;
+  a2---t3;
+  a1---t1;
+  a1---t2;
+```
+
+#### term
+这个函数对应的产生式为term -> term mulop factor | factor  
+也是个左递归，算法原理和上面的simple-exp一样的
+
+#### factor
+这个函数对应的产生式为factor -> (exp) | number | identifier  
+也是根据读到的第一个Token来分情况讨论  
+如果读到的是一个数，那么返回ConstK类型的树结点，结点的attr为读到的数的取值  
+如果读到的是一个ID，那么返回IdK类型的树结点，结点的attr为变量的名称  
+如果读到的是一个左括号，说明是(exp)的形式，于是返回的结点为exp函数生成的树的根结点
