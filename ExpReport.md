@@ -22,8 +22,8 @@ addop → + | -
 term → term mulop factor | factor
 mulop → * | /
 factor → (exp) | number | identifier
-number → [1-9][0-9]*
-identifier → [a-zA-Z]*
+number → [1-9][0-9]* | 0
+identifier → [a-zA-Z]?
 ```
 Tiny+文法
 ```
@@ -45,7 +45,7 @@ addop → + | -
 term → term mulop factor | factor
 mulop → * | /
 factor → (exp) | number | identifier
-number → (+|-)?[1-9][0-9]*
+number → (+|-)?([1-9][0-9]* | 0)
 identifier → [a-zA-Z]([0-9]| [a-zA-Z])*
 ```
 
