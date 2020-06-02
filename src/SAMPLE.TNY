@@ -2,12 +2,12 @@
   in TINY language -
   computes factorial
 }
-read x; { input an integer }
-if 0 < x then { don't compute if x <= 0 }
+read x1y; { input an integer }
+if 0 < x1y then { don't compute if x1y <= 0 }
   fact := 1;
   repeat
-    fact := fact * x;
-    x := x - 1
-  until x = 0;
-  write fact  { output factorial of x }
+    fact := fact * x1y;
+    x1y := x1y - 1
+  until x1y = 0;
+  write fact  { output factorial of x1y }
 end
