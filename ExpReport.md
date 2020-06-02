@@ -71,32 +71,50 @@ A(right)->B(right)->C(right)
 ```
 ### 2.2 词法分析
 编译器执行的第一步就是词法分析程序，该程序的功能是当语法分析程序发出一个getToken()调用时，该程序返回一个token值，同时如果token为NUM或ID时，在tokenString中装入NUM的值或ID的名字。Token有五个基本类型：保留字、特殊符号、数、标识符和其它符号。具体见下表
-保留字 | 特殊符号 | 数 | 标识符 | 标识符
+保留字 | 特殊符号 | 数 | 标识符 | 其他符号
 :-: | :-: | :-: | :-: | :-:
-if | bbb | ccc | ddd | eee| 
-then | ggg| hhh | iii | 000|
-else | ggg| hhh | iii | 000|
-fff | ggg| hhh | iii | 000|
-fff | ggg| hhh | iii | 000|
-fff | ggg| hhh | iii | 000|
-fff | ggg| hhh | iii | 000|
-fff | ggg| hhh | iii | 000|
-fff | ggg| hhh | iii | 000|
-fff | ggg| hhh | iii | 000|
+if | + | num | id | EOF| 
+then | - | num | id | error|
+else | * | num | id | error|
+end | / | num | id | error|
+repeat | = | num | id | error|
+until | < | num | id | error|
+read | ( | num | id | error|
+write | := | num | id | error|
+int | ; | num | id | error|
+bool |  | num | id | error|
+char |  | num | id |error|
 
-开始状态：首先要读进一个字符(调用函数getNextChar)。如读入一个空白字符,则跳过它,继续读字符,直到读入一个非空字符为止。接下去根据所读进的非空字符跳转至相应的程序进行处理。
 
-标识符状态：识别并组合成标识符以后,调用保留字查表函数reservedlookup,用以确定是保留字还是用户自定义的标识符。按情况输出相应单词:如是标识符则输出单词ID,并将标识符的名字保存在tokenString中,如是保留字则输出相应的单词标志码。 
+开始状态(start)：首先要读进一个字符(调用函数getNextChar)。如读入一个空白字符,则跳过它,继续读字符,直到读入一个非空字符为止。接下去根据所读进的非空字符跳转至相应的程序进行处理。
 
-整数状态：识别并组合数字，输出单词NUM并将数值结果保存在tokenString中。 
+标识符状态(inid)：识别并组合成标识符以后,调用保留字查表函数reservedlookup,用以确定是保留字还是用户自定义的标识符。按情况输出相应单词:如是标识符则输出单词ID,并将标识符的名字保存在tokenString中,如是保留字则输出相应的单词标志码。 
 
-单分界符状态：只需输出其内部的单词标志码。 
+整数状态(innum)：识别并组合数字，输出单词NUM并将数值结果保存在tokenString中。 
 
-双分界符状态：如果读入的下一个字符不是”=”则报错,输出单词ERROR。否则,成功识别,输出单词ASSIGN。 
+单分界符状态(done)：只需输出其内部的单词标志码。 
 
-注释状态：略过注释内容，直到遇到注释结束标志或者是文件结束标志EOF,并不生成单词。 
+双分界符状态(inassign)：如果读入的下一个字符不是”=”则报错,输出单词ERROR。否则,成功识别,输出单词ASSIGN。 
 
-错误状态：表示词法分析程序从源程序读入了一个不合法的字符,打印错误信息,输出单词ERROR,略过产生错误的字符，转开始状态继续识别和组合下一个单词符号。 
+注释状态(incomment)：略过注释内容，直到遇到注释结束标志或者是文件结束标志EOF,并不生成单词。 
+
+错误状态：表示词法分析程序从源程序读入了一个不合法的字符,打印错误信息,输出单词ERROR,略过产生错误的字符，转开始状态继续识别和组合下一个单词符号。 
+
+Tiny+程序词法分析的DFA描述：
+```mermaid
+graph LR
+incomment --> start
+start --> innum --> done
+start --> inid --> done
+start --> inassign --> done
+start --> done 
+start --> start
+start --> incomment
+incomment --> incomment
+innum --> innum
+inid --> inid
+```
+
 ### 2.3 语法分析
 语法分析为TINY+编译程序的重要部分，语法分析的主要任务是：从源程序符号串中识别出各类语法成份，进行语法检查，最后生成符号表和语法树。 TINY+编译系统采用了递归子程序方法进行语法分析。TINY+语法分析的输入是TOKEN码和tokenString语义信息串。输出结果为语法树，符号表。 TINY+语法分析的主要步骤是：先分析变量声明语句生成符号表，然后再分析语句序列，在分析语句序列时每遇到token为ID时查找符号表，按其变量类型正确调用分析函数。最终生成整个程序的语法树。       
 
@@ -114,6 +132,80 @@ typedef struct treeNode
              char * name; } attr;//操作符，数值，标识符名称
      ExpType type; //记录语法树的检查类型
    } TreeNode;
+```
+
+if语句：最多有三个子节点，child[0]节点为逻辑表达式节点，测试条件是否成立，child[1]节点为条件满足时的语句序列，child[2]节点根据是否有ELSE语句决定存在于否，为条件不满足时的语句序列
+```c
+TreeNode * if_stmt(void)
+{ TreeNode * t = newStmtNode(IfK);
+  match(IF);
+  if (t!=NULL) t->child[0] = exp();
+  match(THEN);
+  if (t!=NULL) t->child[1] = stmt_sequence();
+  if (token==ELSE) {
+    match(ELSE);
+    if (t!=NULL) t->child[2] = stmt_sequence();
+  }
+  match(END);
+  return t;
+}
+```
+```mermaid
+graph TD
+a{if}
+a -->test
+a -->then-part
+a -->else-part
+```
+
+repeat语句：有两个子节点，child[0]节点为循环体语句序列，child[1]节点是逻辑表达式节点。  
+```c
+TreeNode * repeat_stmt(void)
+{ TreeNode * t = newStmtNode(RepeatK);
+  match(REPEAT);
+  if (t!=NULL) t->child[0] = stmt_sequence();
+  match(UNTIL);
+  if (t!=NULL) t->child[1] = exp();
+  return t;
+}
+```
+```mermaid
+graph TD
+a{repeat}
+a -->body
+a -->test
+```
+
+assign语句：有一个子节点，child[0]为表示其值是被赋予的表达式（被赋予的变量名保存在语句节点中）
+```c
+TreeNode * assign_stmt(void)
+{ TreeNode * t = newStmtNode(AssignK);
+  if ((t!=NULL) && (token==ID))
+    t->attr.name = copyString(tokenString);
+  match(ID);
+  match(ASSIGN);
+  if (t!=NULL) t->child[0] = exp();
+  return t;
+}
+```
+```mermaid
+graph TD
+a{assign}
+a -->expression
+```
+write语句：有一个子节点，child[0]表示要写出值的表达式：
+```c
+TreeNode * write_stmt(void)
+{ TreeNode * t = newStmtNode(WriteK);
+  match(WRITE);
+  if (t!=NULL) t->child[0] = exp();
+  return t;
+}
+```
+```mermaid
+graph TD
+a{write}
+a -->expression
 ```
 ### 2.4 语义分析
 TINY+静态检查各类语义错误。TINY+语义类型检查是通过后序遍历完成，通过对语法树的后序遍历，对于所有非叶节点，其所有子节点的类型已经计算完成，这样可根据其子节点类型及当前操作符判别当前节点类型，将其插入到树节点，并把任意的类型检查错误记录到列表文件中。
@@ -216,7 +308,7 @@ void emitComment( char * c )
 
 //emitRO、emitRM为标准的代码发行函数
 //该函数除指令串和3个操作数外
-//每个函数还带有1个附加串参数它被加到指令中作为注释。
+//每个函数还带有1个附加串参数，它被加到指令中作为注释。
 void emitRO( char *op, int r, int s, int t, char *c)
 { fprintf(code,"%3d:  %5s  %d,%d,%d ",emitLoc++,op,r,s,t);
   if (TraceCode) fprintf(code,"\t%s",c) ;
