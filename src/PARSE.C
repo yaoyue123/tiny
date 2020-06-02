@@ -14,6 +14,8 @@ static TokenType token; /* holds current token */
 static TokenType prev_token = ENDFILE; /*holds previous token*/
 
 /* function prototypes for recursive calls */
+static TreeNode * declaration_list(void);
+static TreeNode * declaration(void);
 static TreeNode * stmt_sequence(void);
 static TreeNode * statement(void);
 static TreeNode * if_stmt(void);
@@ -39,6 +41,48 @@ static void match(TokenType expected)
     printToken(token,tokenString);
     fprintf(listing,"      ");
   }
+}
+
+TreeNode * declaration_list(void)
+{ TreeNode * t = declaration();
+  TreeNode * p = t;
+  while(token == SEMI)
+  { TreeNode * q;
+    match(SEMI);
+    q = declaration();
+    if (q!=NULL) {
+      if (t==NULL) t = p = q;
+      else /* now p cannot be NULL either */
+      { p->sibling = q;
+        p = q;
+      }
+    } else {
+      break;
+    }
+  }
+  return t;
+}
+
+TreeNode *declaration(void)
+{
+  TreeNode * t = NULL;
+  switch (token) {
+  case INT:
+    t = newStmtNode(IntK);
+    match(INT);
+    t->attr.name = copyString(tokenString);
+    match(ID);
+    break;
+  case CHAR:
+    t = newStmtNode(CharK);
+    match(CHAR);
+    t->attr.name = copyString(tokenString);
+    match(ID);
+    break;
+  default:
+    break;
+  }
+  return t;
 }
 
 TreeNode * stmt_sequence(void)
@@ -209,7 +253,15 @@ TreeNode * factor(void)
 TreeNode * parse(void)
 { TreeNode * t;
   token = getToken(&prev_token);
-  t = stmt_sequence();
+  t = declaration_list();
+  if(t != NULL) {
+    TreeNode * p = t;
+    while(p->sibling != NULL) p = p->sibling;
+    p->sibling = stmt_sequence();
+  } else {
+    t = stmt_sequence();
+  }
+  
   if (token!=ENDFILE)
     syntaxError("Code ends before file\n");
   return t;

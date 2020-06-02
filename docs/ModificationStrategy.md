@@ -23,8 +23,8 @@ factor	->  (exp) | number | identifier
  ### 目标文法
 ```
 program -> declaration-list; stmt-sequence
-declaration-list → declaration-list declaration | declaration
-declaration → type-specifier identifier;
+declaration-list → declaration-list; declaration | declaration
+declaration → type-specifier identifier
 type-specifier → int | char
 stmt-sequence -> stmt-sequence; statement | statement
 statement -> if-stmt | repeat-stmt | assign-stmt | read-stmt | write-stmt
@@ -71,3 +71,48 @@ if (!isalpha(c) && !isdigit(c))
 想到的解决方法是，在遇到+或者-时，查看前一个token，如果前一个token是NUM或者ID，说明这是个加减号，否则说明这是个正负号。  
 给scan.c中的getToken加一个形参TokenType *prev_token，这个指针指向的token值为前一个token，这样就可以根据prev_token来判断这是正负号还是加减号了。相应的，PARSE.C里面要加一个静态全局变量prev_token。  
 不过如果这样改，这个正负号不能用于变量。但课程考核要求里面也没说要实现正负号用于变量，问题不大。
+
+### 添加对两种数据类型int, char的支持
+原来的TINY中，只有一种数据类型int，因此变量也可以不用声明，直接使用。  
+TINY+当中添加了一个新的数据类型char，因此必须得声明变量的数据类型才能使用了。  
+声明语句是之前TINY没有的全新的语句，里面的词也是新的。因此得从最基本的词法分析开始改，估计得一直改到ANALYZE这一层。  
+INT和CHAR可以看作是保留字，因此将其放到GLOBALS.H中的TokenType当中。  
+然后在SCAN.C当中，要把INT和CHAR放到保留字的数组里面。同时，UTIL.C中的printToken函数也要修改一下。  
+
+这样就完成了int和char的词法分析。接下来修改构建语法树的代码。我的想法大致是，将declaration通过sibling串起来，然后尾部的一个declaration和statement通过sibling连接，最后，statement再通过sibling串起来。最后，declaration和statement通过sibling构成一个串。  
+首先得在GLOBALS.H的StmtKind里面加两个类型：IntK和CharK。  
+然后再到PARSE.C当中，添加declaration-list的代码、declaration的代码。  
+现在看看declaration的相关文法，发现如果按照要求里面的文法，最后declaration-list末尾会有两个分号，于是便擅自对文法进行了改动。  
+declaration-list → declaration-list; declaration | declaration  
+declaration → type-specifier identifier  
+根据这个文法加函数，然后再改一改parse函数，最后还得去UTIL.C把printTree改一改。  
+现在就可以成功生成想要的语法树了。在源代码的开头随便加一点声明，然后parse看看生成的语法树。
+```
+Syntax tree:
+  Int: x
+  Char: y
+  Char: z
+  Int: w
+  Int: opqrst
+  Read: x
+  If
+    Op: <
+      Const: 0
+      Id: x
+    Assign to: fact
+      Const: 1
+    Repeat
+      Assign to: fact
+        Op: *
+          Id: fact
+          Id: x
+      Assign to: x
+        Op: -
+          Id: x
+          Const: 1
+      Op: =
+        Id: x
+        Const: 0
+    Write
+      Id: fact
+```
