@@ -76,7 +76,7 @@ static TokenType reservedLookup (char * s)
 /* function getToken returns the 
  * next token in source file
  */
-TokenType getToken(void)
+TokenType getToken(TokenType *prev_token)
 {  /* index for storing into tokenString */
    int tokenStringIndex = 0;
    /* holds current token to be returned */
@@ -116,11 +116,23 @@ TokenType getToken(void)
                currentToken = LT;
                break;
              case '+':
-               currentToken = PLUS;
-               break;
+               if(*prev_token == ID || *prev_token == NUM) {
+                 currentToken = PLUS;
+                 break;
+               } else {
+                 state = INNUM;
+                 break;
+               }
+               
              case '-':
-               currentToken = MINUS;
-               break;
+               if(*prev_token == ID || *prev_token == NUM) {
+                 currentToken = MINUS;
+                 break;
+               } else {
+                 state = INNUM;
+                 break;
+               }
+
              case '*':
                currentToken = TIMES;
                break;
@@ -198,6 +210,7 @@ TokenType getToken(void)
      fprintf(listing,"\t%d: ",lineno);
      printToken(currentToken,tokenString);
    }
+   *prev_token = currentToken;
    return currentToken;
 } /* end getToken */
 

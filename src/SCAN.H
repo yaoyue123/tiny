@@ -17,6 +17,6 @@ extern char tokenString[MAXTOKENLEN+1];
 /* function getToken returns the 
  * next token in source file
  */
-TokenType getToken(void);
+TokenType getToken(TokenType *prev_token);
 
 #endif

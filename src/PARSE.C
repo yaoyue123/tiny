@@ -11,6 +11,7 @@
 #include "parse.h"
 
 static TokenType token; /* holds current token */
+static TokenType prev_token = ENDFILE; /*holds previous token*/
 
 /* function prototypes for recursive calls */
 static TreeNode * stmt_sequence(void);
@@ -32,7 +33,7 @@ static void syntaxError(char * message)
 }
 
 static void match(TokenType expected)
-{ if (token == expected) token = getToken();
+{ if (token == expected) token = getToken(&prev_token);
   else {
     syntaxError("unexpected token -> ");
     printToken(token,tokenString);
@@ -69,7 +70,7 @@ TreeNode * statement(void)
     case WRITE : t = write_stmt(); break;
     default : syntaxError("unexpected token -> ");
               printToken(token,tokenString);
-              token = getToken();
+              token = getToken(&prev_token);
               break;
   } /* end case */
   return t;
@@ -193,7 +194,7 @@ TreeNode * factor(void)
     default:
       syntaxError("unexpected token -> ");
       printToken(token,tokenString);
-      token = getToken();
+      token = getToken(&prev_token);
       break;
     }
   return t;
@@ -207,7 +208,7 @@ TreeNode * factor(void)
  */
 TreeNode * parse(void)
 { TreeNode * t;
-  token = getToken();
+  token = getToken(&prev_token);
   t = stmt_sequence();
   if (token!=ENDFILE)
     syntaxError("Code ends before file\n");
