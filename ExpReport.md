@@ -379,7 +379,7 @@ gcc  -o tm tm.c
 #### 4.1.2 Windows环境
 系统版本：Windows 10
 编译器版本：gcc 6.3.0
-在Windows中，需要安装mingw来配置C/C++编译环境，安装好mingw并将其添加到系统环境边练中，即可使用。打开cmd，进入工程目录，使用mingw32-make命令即可进行编译。
+在Windows中，需要安装mingw来配置C/C++编译环境，安装好mingw并将其添加到系统环境变量中，即可使用。打开cmd，进入工程目录，使用mingw32-make命令即可进行编译。
 ```bash
 > mingw32-make all
 gcc  -c main.c
