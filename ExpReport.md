@@ -359,7 +359,73 @@ TINY+代码生成器在文件cgen.c中，其中提供给TINY编译器的唯一�
 ## 4.提交内容说明
 
 ### 4.1源程序运行环境说明
-
+#### 4.1.1 Linux环境
+系统版本：Ubuntu 18.04
+编译器版本：gcc 7.5.0
+在Linux系统下使用命令行进入工程目录，直接使用make命令即可进行编译
+```bash
+> make all
+gcc  -c main.c
+gcc  -c util.c
+gcc  -c scan.c
+gcc  -c parse.c
+gcc  -c symtab.c
+gcc  -c analyze.c
+gcc  -c code.c
+gcc  -c cgen.c
+gcc  main.o util.o scan.o parse.o symtab.o analyze.o code.o cgen.o -o tiny
+gcc  -o tm tm.c
+```
+#### 4.1.2 Windows环境
+系统版本：Windows 10
+编译器版本：gcc 6.3.0
+在Windows中，需要安装mingw来配置C/C++编译环境，安装好mingw并将其添加到系统环境边练中，即可使用。打开cmd，进入工程目录，使用mingw32-make命令即可进行编译。
+```bash
+> mingw32-make all
+gcc  -c main.c
+gcc  -c util.c
+gcc  -c scan.c
+gcc  -c parse.c
+gcc  -c symtab.c
+gcc  -c analyze.c
+gcc  -c code.c
+gcc  -c cgen.c
+gcc  main.o util.o scan.o parse.o symtab.o analyze.o code.o cgen.o -o tiny.exe
+gcc  -o tm.exe tm.c
+```
 ### 4.2程序运行操作说明
-
+#### 4.2.1 tiny编译器
+假定已经编译好tiny编译器的可执行文件是tiny，通过使用以下命令：
+```bash
+>tiny sample.tny
+```
+就可用它编译文本文件sample.tny中的TINY源程序，生成目标代码文件sample.tm（在下面的TM机中使用）
+main.c 有以下选项可供使用：
+标志 |设置效果
+:-: | :-:
+EchoSource|将TINY源程序回显到带有行号的列表
+TraceScan|当扫描程序识别出记号时，就显示每个记号的信息
+TraceParse|将语法树以线性化格式显示
+TraceAnalyze|显示符号表和类型检查的小结信息
+TraceCode|打印有关代码文件的代码生成跟踪注释
+#### 4.2.2 tm机
+假定已经编译好的tm机可执行文件叫作tm，通过发出命令：
+```bash
+>tm sample.tm
+```
+就可使用它了。其中，sample.tm是TIMY编译器由sample.tny源文件生成的代码文件。该命令引起代码文件的汇编和装入，接着就可交互地运行TM模拟程序了。
+tm机的指令如下,括号内容表示可选参数：
+标志 |设置效果
+:- | :-
+s (n)      |执行n条（默认为1）tm指令
+g          |执行tm指令直到停止
+r          |打印寄存器内容
+i (b (n))  |从b开始打印n个iMem位置
+d (b (n))  |从b开始打印n个dMem位置
+t          |切换指令跟踪
+p          |切换执行的总指令的打印
+c          |重置模拟，重新开始模拟
+h          |打印帮助列表
+q          |终止tm机
 ## 5.实验小结
+通过编写此编译器程序，达到了充实知识，锻炼能力的目的，是一次不可多得的锻炼学习的机会。同时，通过对编译原理的更深一步学习，体会到了这门课程所蕴含着的计算机科学中解决问题的思路和抽象问题的解决方法，这些将对我们今后的学习工作给予很大启发和帮助。
