@@ -2,8 +2,9 @@
   in TINY language -
   computes factorial
 }
-int x;char y; char z; int w; int opqrst;
+char x; int y; char fact; int z;
 read x; { input an integer }
+y := z;
 if 0 < x then { don't compute if x <= 0 }
   fact := 1;
   repeat

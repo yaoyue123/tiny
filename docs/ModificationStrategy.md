@@ -116,3 +116,19 @@ Syntax tree:
     Write
       Id: fact
 ```
+
+生成了语法树之后，再修改分析语法树的代码。我的想法是，通过查符号表可以直接获得变量的类型。如果要这样，那还得修改符号表的代码。我之前以为SYMTAB.H相关的代码不用改，现在看来是错的。  
+不想另外设置枚举类型来区分int和char的变量，于是直接从GLOBALS.H中借来了TokenType类型。这主要是为了防止枚举类型太多导致重名。  
+在BucketList结构体中加入TokenType类型用于标记变量是int还是char，然后修改一下st_insert函数，再加一个st_looktype函数用来查询变量类型。  
+接下来修改analyse部分。由于SYMTAB的结构发生改动，且TINY+中有变量必须先声明后使用的规定，因此insertNode函数得大改。改完之后将TraceAnalyze置为True，看看打印的符号表：
+```
+Variable Name  Location  Type  Line Numbers
+-------------  --------  ----  ------------
+w              3         int     5
+x              0         int     5    6    7   10   11   11   12
+y              1         char    5
+z              2         char    5
+opqrst         4         int     5
+```
+接下来改类型检查的代码。首先要在globals.h的ExpType里面加一个新类型Character。然后，Op类型结点的两个子结点本来只能是Integer类型，现在要改成既可以是Integer类型又可以是Character类型，但是两个类型必须一样。这时我忽然意识到，常数该怎么办呢，于是又在ExpType里面加了一个Constant类型。规定常量与两种类型都能运算。  
+很多地方都由于本来只支持Integer导致代码中都默认是Integer，现在加入了Character后都得改。比如在赋值语句中，原来的是后面跟着的exp必须得是Integer，现在可以是Character了，所以得改。于是这个函数也经历了大改。

@@ -41,6 +41,12 @@ static void nullProc(TreeNode * t)
   else return;
 }
 
+static void nameError(TreeNode * t, char * message)
+{
+  fprintf(listing,"Name error at line %d: %s\n",t->lineno,message);
+  Error = TRUE;
+}
+
 /* Procedure insertNode inserts 
  * identifiers stored in t into 
  * the symbol table 
@@ -49,15 +55,31 @@ static void insertNode( TreeNode * t)
 { switch (t->nodekind)
   { case StmtK:
       switch (t->kind.stmt)
-      { case AssignK:
-        case ReadK:
+      { case IntK:
           if (st_lookup(t->attr.name) == -1)
           /* not yet in table, so treat as new definition */
-            st_insert(t->attr.name,t->lineno,location++);
+            st_insert(t->attr.name,t->lineno,location++,INT);
+          else
+          /* already in table, redeclaration */
+            nameError(t, "redeclaration of identifier");
+          break;
+        case CharK:
+          if (st_lookup(t->attr.name) == -1)
+          /* not yet in table, so treat as new definition */
+            st_insert(t->attr.name,t->lineno,location++,CHAR);
+          else
+          /* already in table, redeclaration */
+            nameError(t, "redeclaration of identifier");
+          break;
+        case AssignK:
+        case ReadK:
+          if (st_lookup(t->attr.name) == -1)
+          /* not yet in table, undeclared */
+            nameError(t, "identifier undeclared");
           else
           /* already in table, so ignore location, 
              add line number of use only */ 
-            st_insert(t->attr.name,t->lineno,0);
+            st_insert(t->attr.name,t->lineno,0,ID);
           break;
         default:
           break;
@@ -67,12 +89,12 @@ static void insertNode( TreeNode * t)
       switch (t->kind.exp)
       { case IdK:
           if (st_lookup(t->attr.name) == -1)
-          /* not yet in table, so treat as new definition */
-            st_insert(t->attr.name,t->lineno,location++);
+          /* not yet in table, undeclared */
+            nameError(t, "identifier undeclared");
           else
           /* already in table, so ignore location, 
              add line number of use only */ 
-            st_insert(t->attr.name,t->lineno,0);
+            st_insert(t->attr.name,t->lineno,0,ID);
           break;
         default:
           break;
@@ -107,18 +129,39 @@ static void checkNode(TreeNode * t)
   { case ExpK:
       switch (t->kind.exp)
       { case OpK:
-          if ((t->child[0]->type != Integer) ||
-              (t->child[1]->type != Integer))
-            typeError(t,"Op applied to non-integer");
+          if (!(((t->child[0]->type == Integer) && (t->child[1]->type == Integer)) ||
+              ((t->child[0]->type == Character) && (t->child[1]->type == Character)) ||
+              (t->child[0]->type == Constant) ||
+              (t->child[1]->type == Constant))) 
+            typeError(t,"Op applied to conflict types");
           if ((t->attr.op == EQ) || (t->attr.op == LT))
             t->type = Boolean;
-          else
+          else if (t->child[0]->type == Integer || t->child[1]->type == Integer)
             t->type = Integer;
+          else if (t->child[0]->type == Character || t->child[1]->type == Character)
+            t->type = Character;
+          else
+            t->type = Constant;
           break;
         case ConstK:
-        case IdK:
-          t->type = Integer;
+          t->type = Constant;
           break;
+        case IdK: {
+          TokenType type = st_looktype(t->attr.name);
+          switch (type)
+          {
+            case INT:
+              t->type = Integer;
+              break;
+            case CHAR:
+              t->type = Character;
+              break;
+            default:
+              typeError(t,"Unknown type");
+              break;
+          }
+          break;
+        }
         default:
           break;
       }
@@ -126,19 +169,32 @@ static void checkNode(TreeNode * t)
     case StmtK:
       switch (t->kind.stmt)
       { case IfK:
-          if (t->child[0]->type == Integer)
+          if (t->child[0]->type != Boolean)
             typeError(t->child[0],"if test is not Boolean");
           break;
-        case AssignK:
-          if (t->child[0]->type != Integer)
-            typeError(t->child[0],"assignment of non-integer value");
+        case AssignK: {
+          TokenType type = st_looktype(t->attr.name);
+          switch(type) {
+            case INT:
+              if (t->child[0]->type != Integer && t->child[0]->type != Constant)
+                typeError(t->child[0],"assignment of non-integer value");
+              break;
+            case CHAR:
+              if (t->child[0]->type != Character && t->child[0]->type != Constant)
+                typeError(t->child[0],"assignment of non-character value");
+              break;
+            default:
+              typeError(t,"Unknown type");
+              break;
+          }
           break;
+        }
         case WriteK:
-          if (t->child[0]->type != Integer)
-            typeError(t->child[0],"write of non-integer value");
+          if (t->child[0]->type != Integer && t->child[0]->type != Character && t->child[0]->type != Constant)
+            typeError(t->child[0],"write of neither integer nor character value");
           break;
         case RepeatK:
-          if (t->child[1]->type == Integer)
+          if (t->child[1]->type != Boolean)
             typeError(t->child[1],"repeat test is not Boolean");
           break;
         default:
