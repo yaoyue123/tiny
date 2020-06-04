@@ -25,7 +25,7 @@ static void cGen (TreeNode * tree);
 static void genStmt( TreeNode * tree)
 { TreeNode * p1, * p2, * p3;
   int savedLoc1,savedLoc2,currentLoc;
-  int loc;
+  int loc; TokenType type;
   switch (tree->kind.stmt) {
 
       case IfK :
@@ -79,7 +79,11 @@ static void genStmt( TreeNode * tree)
          break; /* assign_k */
 
       case ReadK:
-         emitRO("IN",ac,0,0,"read integer value");
+         type = st_looktype(tree->attr.name);
+         if (type == INT)
+            emitRO("IN",ac,0,0,"read integer value");
+         else if (type == CHAR)
+            emitRO("INC",ac,0,0,"read character value");
          loc = st_lookup(tree->attr.name);
          emitRM("ST",ac,loc,gp,"read: store value");
          break;
@@ -87,7 +91,10 @@ static void genStmt( TreeNode * tree)
          /* generate code for expression to write */
          cGen(tree->child[0]);
          /* now output it */
-         emitRO("OUT",ac,0,0,"write ac");
+         if (tree->child[0]->type == Integer || tree->child[0]->type == Constant)
+            emitRO("OUT",ac,0,0,"write ac");
+         else if (tree->child[0]->type == Character)
+            emitRO("OUTC",ac,0,0,"write ac as char");
          break;
       default:
          break;
@@ -140,14 +147,20 @@ static void genExp( TreeNode * tree)
                emitRO("DIV",ac,ac1,ac,"op /");
                break;
             case LT :
-               emitRO("SUB",ac,ac1,ac,"op <") ;
+               if (tree->child[0]->type == Integer || tree->child[1]->type == Integer)
+                  emitRO("SUB",ac,ac1,ac,"op <") ;
+               else if (tree->child[0]->type == Character || tree->child[1]->type == Character)
+                  emitRO("SUBC",ac,ac1,ac,"op <") ;
                emitRM("JLT",ac,2,pc,"br if true") ;
                emitRM("LDC",ac,0,ac,"false case") ;
                emitRM("LDA",pc,1,pc,"unconditional jmp") ;
                emitRM("LDC",ac,1,ac,"true case") ;
                break;
             case EQ :
-               emitRO("SUB",ac,ac1,ac,"op ==") ;
+               if (tree->child[0]->type == Integer || tree->child[1]->type == Integer)
+                  emitRO("SUB",ac,ac1,ac,"op ==") ;
+               else if (tree->child[0]->type == Character || tree->child[1]->type == Character)
+                  emitRO("SUBC",ac,ac1,ac,"op ==") ;
                emitRM("JEQ",ac,2,pc,"br if true");
                emitRM("LDC",ac,0,ac,"false case") ;
                emitRM("LDA",pc,1,pc,"unconditional jmp") ;

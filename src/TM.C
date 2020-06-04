@@ -38,9 +38,12 @@ typedef enum {
    /* RR instructions */
    opHALT,    /* RR     halt, operands are ignored */
    opIN,      /* RR     read into reg(r); s and t are ignored */
+   opINC,     /* RR     read into reg(r); s and t are ignored */
    opOUT,     /* RR     write from reg(r), s and t are ignored */
+   opOUTC,    /* RR     write from reg(r), s and t are ignored */
    opADD,    /* RR     reg(r) = reg(s)+reg(t) */
    opSUB,    /* RR     reg(r) = reg(s)-reg(t) */
+   opSUBC,   /* RR     reg(r) = (char)reg(s)-(char)reg(t) */
    opMUL,    /* RR     reg(r) = reg(s)*reg(t) */
    opDIV,    /* RR     reg(r) = reg(s)/reg(t) */
    opRRLim,   /* limit of RR opcodes */
@@ -88,7 +91,7 @@ int dMem [DADDR_SIZE];
 int reg [NO_REGS];
 
 char * opCodeTab[]
-        = {"HALT","IN","OUT","ADD","SUB","MUL","DIV","????",
+        = {"HALT","IN","INC","OUT","OUTC","ADD","SUB","SUBC","MUL","DIV","????",
             /* RR opcodes */
            "LD","ST","????", /* RM opcodes */
            "LDA","LDC","JLT","JLE","JGT","JGE","JEQ","JNE","????"
@@ -363,12 +366,25 @@ STEPRESULT stepTM (void)
       }
       while (! ok);
       break;
+    
+    case opINC :
+    /***********************************/
+      printf("Enter value for INC instruction: ") ;
+      fflush (stdin);
+      fflush (stdout);
+      gets(in_Line);
+      reg[r] = in_Line[0];
+      break;
 
     case opOUT :  
       printf ("OUT instruction prints: %d\n", reg[r] ) ;
       break;
+    case opOUTC :
+      printf ("OUTC instruction prints: %c\n", (char)reg[r] ) ;
+      break;
     case opADD :  reg[r] = reg[s] + reg[t] ;  break;
     case opSUB :  reg[r] = reg[s] - reg[t] ;  break;
+    case opSUBC:  reg[r] = (char)reg[s] - (char)reg[t] ; break;
     case opMUL :  reg[r] = reg[s] * reg[t] ;  break;
 
     case opDIV :

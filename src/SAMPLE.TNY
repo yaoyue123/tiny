@@ -1,15 +1,32 @@
 { Sample program
-  in TINY language -
-  computes factorial
+  in TINY language
 }
-char x; int y; char fact; int z;
-read x; { input an integer }
-y := z;
-if 0 < x then { don't compute if x <= 0 }
-  fact := 1;
-  repeat
-    fact := fact * x;
-    x := x - 1
-  until x = 0;
-  write fact  { output factorial of x }
-end
+char x;
+char letterp; char letterl; char lettere;
+int number;
+letterp := 112; letterl := 108; lettere := 101;
+write 12*3;
+read x;
+read number;
+repeat
+  write number;
+  write x;
+  if x = 97
+  then
+    write letterp;
+    write letterp;
+    write letterl;
+    write lettere
+  else
+    if x = 65
+    then
+      write letterp;
+      write lettere
+    else
+      write x+1
+    end
+  end;
+  write 10000*1000;
+  number := number + 1;
+  x := x + 1
+until 300 < number
