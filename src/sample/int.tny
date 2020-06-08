@@ -1,0 +1,9 @@
+int x0;
+int y1y;
+int z2;
+y1y := -1;
+z2 := 0;
+read x0;
+write x0;
+write y1y;
+write z2

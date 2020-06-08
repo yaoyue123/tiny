@@ -1,0 +1,3 @@
+char x123;
+read x123;
+write x123
