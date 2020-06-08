@@ -354,7 +354,55 @@ void emitRM_Abs( char *op, int r, int a, char * c)
 ```
 TINY+代码生成器在文件cgen.c中，其中提供给TINY编译器的唯一接口是codeGen，该函数本身所做的事极少，产生一些注释和标准序言指令、设置启动时运行环境，然后在语法树上调用cGen，最后产生HALT指令终止程序。标准序言由两条指令组成：即跳过全局变量，将fp,sp定义为主活动记录起始点。
 ## 3.测试案例与测试结果
-
+### 添加内容展示
+#### char 类型
+tiny 代码
+```text
+char x123;
+read x123;
+write x123
+```
+运行结果
+![tiny](pic/char1.png)
+![tm](pic/char2.png)
+#### int 类型
+tiny 代码
+```text
+int x0;
+int y1y;
+int z2;
+y1y := -1;
+z2 := 0;
+read x0;
+write x0;
+write y1y;
+write z2
+```
+运行结果
+![tiny](pic/int11.png)
+![tiny](pic/int12.png)
+![tm](pic/int2.png)
+### 错误提醒展示
+#### 变量未声明
+tiny 代码
+```text
+x := 1;
+read x;
+write x
+```
+运行结果
+![tiny](pic/unid.png)
+#### 类型转化错误
+tiny 代码
+```text
+int x;
+char y;
+x := y;
+read x;
+write x
+```
+运行结果
+![tiny](pic/type.png)
 
 ## 4.提交内容说明
 
