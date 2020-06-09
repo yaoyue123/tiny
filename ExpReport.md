@@ -48,6 +48,9 @@ factor → (exp) | number | identifier
 number → (+|-)?([1-9][0-9]* | 0)
 identifier → [a-zA-Z]([0-9]| [a-zA-Z])*
 ```
+Tiny+语义规则
+```text
+```
 
 ## 2.程序框架
 
@@ -476,4 +479,102 @@ c          |重置模拟，重新开始模拟
 h          |打印帮助列表
 q          |终止tm机
 ## 5.实验小结
+### 5.1 修改过程介绍
+
+#### 5.1.1 添加对变量名中带数字的支持
+原来的TINY中，变量名必须得全是字母，但是TINY+中变量名可以含有数字。  
+如果把SAMPLE.TNY中的x换成x1y，就会报错，原因在于词法分析时将1看作数字。  
+在SCAN.C的getToken函数中，case INID里面  
+```
+if (!isalpha(c))
+```
+改成
+```
+if (!isalpha(c) && !isdigit(c))
+```
+即可。
+
+#### 5.1.2 常数不能以0开头
+原来的TINY中，检测到数字就认为进入了一个NUM的token。但是TINY+中的NUM不能以0开头。比如在SAMPLE.TNY中输入x := 010;是不会报错的。  
+为了让这种情况报错，在scan.c的getToken中将case START中的 if (isdigit(c)) 改成 if (isdigit(c) && c != '0')。  
+这样就能让这种情况报错了，然而这样就不能表示0了。  
+经过讨论后，认为还是允许NUM以0开头算了，于是又改回来了。
+
+#### 5.1.3 添加NUM中对正负号的支持
+原来的TINY中，不支持正负号。但是支持正负号不是一件容易的事，因为原来的文法是一个LL(1)文法，只用看一个符号就能决定下一步的动作。但是加入正负号后，遇到一个'+'或者'-'无法立即反应出这是正负号还是加减号，这给程序的编写带来麻烦。  
+想到的解决方法是，在遇到+或者-时，查看前一个token，如果前一个token是NUM或者ID，说明这是个加减号，否则说明这是个正负号。  
+给scan.c中的getToken加一个形参TokenType *prev_token，这个指针指向的token值为前一个token，这样就可以根据prev_token来判断这是正负号还是加减号了。相应的，PARSE.C里面要加一个静态全局变量prev_token。  
+
+#### 5.1.4 添加对两种数据类型int, char的支持
+原来的TINY中，只有一种数据类型int，因此变量也可以不用声明，直接使用。  
+TINY+当中添加了一个新的数据类型char，因此必须得声明变量的数据类型才能使用了。  
+声明语句是之前TINY没有的全新的语句，里面的词也是新的。因此得从最基本的词法分析开始改，估计得一直改到ANALYZE这一层。  
+INT和CHAR可以看作是保留字，因此将其放到GLOBALS.H中的TokenType当中。  
+然后在SCAN.C当中，要把INT和CHAR放到保留字的数组里面。同时，UTIL.C中的printToken函数也要修改一下。  
+
+这样就完成了int和char的词法分析。接下来修改构建语法树的代码。我们的想法大致是，将declaration通过sibling串起来，然后尾部的一个declaration和statement通过sibling连接，最后，statement再通过sibling串起来。最后，declaration和statement通过sibling构成一个串。  
+首先得在GLOBALS.H的StmtKind里面加两个类型：IntK和CharK。  
+然后再到PARSE.C当中，添加declaration-list的代码、declaration的代码。  
+现在看看declaration的相关文法，发现如果按照要求里面的文法，最后declaration-list末尾会有两个分号，于是便擅自对文法进行了改动。  
+declaration-list → declaration-list; declaration | declaration  
+declaration → type-specifier identifier  
+根据这个文法加函数，然后再改一改parse函数，最后还得去UTIL.C把printTree改一改。  
+现在就可以成功生成想要的语法树了。在源代码的开头随便加一点声明，然后parse看看生成的语法树。
+```
+Syntax tree:
+  Int: x
+  Char: y
+  Char: z
+  Int: w
+  Int: opqrst
+  Read: x
+  If
+    Op: <
+      Const: 0
+      Id: x
+    Assign to: fact
+      Const: 1
+    Repeat
+      Assign to: fact
+        Op: *
+          Id: fact
+          Id: x
+      Assign to: x
+        Op: -
+          Id: x
+          Const: 1
+      Op: =
+        Id: x
+        Const: 0
+    Write
+      Id: fact
+```
+
+生成了语法树之后，再修改分析语法树的代码。我们的想法是，通过查符号表可以直接获得变量的类型。如果要这样，那还得修改符号表的代码。我们之前以为SYMTAB.H相关的代码不用改，现在看来是错的。  
+不想另外设置枚举类型来区分int和char的变量，于是直接从GLOBALS.H中借来了TokenType类型。这主要是为了防止枚举类型太多导致重名。  
+在BucketList结构体中加入TokenType类型用于标记变量是int还是char，然后修改一下st_insert函数，再加一个st_looktype函数用来查询变量类型。  
+接下来修改analyse部分。由于SYMTAB的结构发生改动，且TINY+中有变量必须先声明后使用的规定，因此insertNode函数得大改。改完之后将TraceAnalyze置为True，看看打印的符号表：
+```
+Variable Name  Location  Type  Line Numbers
+-------------  --------  ----  ------------
+w              3         int     5
+x              0         int     5    6    7   10   11   11   12
+y              1         char    5
+z              2         char    5
+opqrst         4         int     5
+```
+接下来改类型检查的代码。首先要在globals.h的ExpType里面加一个新类型Character。然后，Op类型结点的两个子结点本来只能是Integer类型，现在要改成既可以是Integer类型又可以是Character类型，但是两个类型必须一样。这时我们忽然意识到，常数该怎么办呢，于是又在ExpType里面加了一个Constant类型。规定常量与两种类型都能运算。  
+很多地方都由于本来只支持Integer导致代码中都默认是Integer，现在加入了Character后都得改。比如在赋值语句中，原来的是后面跟着的exp必须得是Integer，现在可以是Character了，所以得改。于是这个函数也经历了大改。
+
+现在虽然已经支持int和char类型了，但是由于char是通过已有的int来支持的，这使得char类型的变量和int类型的变量除了不能互相赋值、运算以外没有别的区别。这就首先导致char类型在比大小时出现问题。比如，char类型由于实际上是int，可能会由于隐藏的高位，出现字符'a'的值大于字符'b'的现象。加减法倒不影响，因为高位对低位加减法的结果不会产生影响。乘除法也会有问题，不过char类型进行乘除意义不大，所以这个暂时不改。另外，我们还希望在read字符类型时输入字符，在write字符类型时输出字符。这就需要改TM机器码了。  
+我们的大致设想如下：
+为了实现read字符类型时输入字符，添加指令INC，作用是接收字符的ASCII码，将其放入对应的位置  
+为了实现write字符类型时输出字符，添加指令OUTC，作用是根据ASCII码输出字符  
+至于比大小的实现方法，我们看了一下，比大小的指令都会首先有一个SUB指令，也就是说其实是根据减法得到的值来判断比大小结果的。于是添加指令SUBC，作用是截取两个寄存器的低八位，相减的值存入目标寄存器。  
+
+先修改CGEN.H，找到ReadK和WriteK，原本这里单纯生成IN和OUT指令，现在增加一个判断，如果类型为int就IN和OUT，如果类型为char就INC和OUTC。  
+然后找到LT和EQ，进行SUBC的修改。最后看看生成的代码，发现可以成功生成INC，OUTC和SUBC。  
+虽然生成了指令，但新指令还不能执行，得去修改TM.C。首先在OPCODE和OpCodeTab对应位置加入三条新指令，指令位置有必要一一对应。加完后再执行代码，发现不会报错了，但是还没有操作，因此再加入指令对应的操作。
+
+### 5.2 心得体会
 通过编写此编译器程序，达到了充实知识，锻炼能力的目的，是一次不可多得的锻炼学习的机会。同时，通过对编译原理的更深一步学习，体会到了这门课程所蕴含着的计算机科学中解决问题的思路和抽象问题的解决方法，这些将对我们今后的学习工作给予很大启发和帮助。
