@@ -49,8 +49,44 @@ number → (+|-)?([1-9][0-9]* | 0)
 identifier → [a-zA-Z]([0-9]| [a-zA-Z])*
 ```
 Tiny+语义规则
-```text
+
+产生式 | 语义规则 
+:-: | :-:
+declaration → type-specifier identifier; | dec.type = id.type 
+assign-stmt → identifier := exp | id.val = exp.val
+exp → simple-exp comparson-op simple-exp  | exp.val = sim.val (<|=) sim.val
+simple-exp → simple-exp addop term | sim.val = sim.val (+|-) term.val
+term → term mulop factor | term.val = term.val (*|/) factor.val
+write-stmt → write exp | print(exp.val)
 ```
+declaration -> type-specifier identifier
+id.type = type-specifier
+
+exp -> simple-exp comparison simple-exp
+exp.type = Boolean
+
+simple-exp1 -> simple-exp2 addop term
+sim1.type = 一个为Integer, 一个为Character ----> 报错
+sim2.type==Integer||term.type==Integer ----> Integer
+sim2.type==Character||term.type==Character ----> Character
+都为Constant ----> Constant
+
+term1 -> term2 mulop factor
+term1.type = 一个为Integer, 一个为Character ----> 报错
+term2.type==Integer||factor.type==Integer ----> Integer
+term2.type==Character||factor.type==Character ----> Character
+都为Constant ----> Constant
+
+factor -> (exp)
+factor.type = exp.type
+
+factor -> number
+factor.type = Constant
+
+factor -> identifier
+factor.type = id.type
+```
+
 
 ## 2.程序框架
 

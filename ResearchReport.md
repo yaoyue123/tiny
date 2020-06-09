@@ -202,15 +202,36 @@ int main(){
     return 0;
 }
 ```
-
+首先建立llvm工程如下
+```
+.
+├── cmake
+│   └── FindLLVM.cmake
+├── CMakeLists.txt
+├── src
+│   ├── CMakeLists.txt
+│   └── FunctionTest.cpp
+└── workspace
+    ├── output1.txt
+    ├── output2.txt
+    ├── test.c
+    └── test.ll
+```
+然后对LLVM Pass进行编译，具体命令如下
+```bash
+>mkdir build
+>cd build/
+>cmake ..
+>make
+```
 利用Clang把C语言代码生成为LLVM字节码的文本形式 .ll 文件
 
 ```bash
-clang test.c  -O0 -g -S -emit-llvm -o test.ll 
+> clang test.c  -O0 -g -S -emit-llvm -o test.ll 
 ```
 再利用LLVM Pass编译出来的 .so 文件对LLVM字节码进行分析
 ```bash
-opt -load /root/llvm/build/src/libTest.so -SwitchBB test.ll
+> opt -load /root/llvm/build/src/libTest.so -SwitchBB test.ll
 ```
 最终生成的结果如下：
 
@@ -229,6 +250,7 @@ output2.txt
 5 -> 9
 5 -> 10
 ```
-output1展示了switch基本块的信息，output2展示了switch语句与case语句的对应关系
+output1展示了switch基本块的信息，output2展示了switch语句与case语句的对应关系。
+之后再利用ida pro 和 addr2line 等工具，将二进制文件的汇编代码段跳转关系与c语言基本块的跳转关系对应起来，获取所需的数据样本，再利用keras等高阶神经网络库，对数据样本进行分类，从而构建模型，提高对跳转基本块的识别能力，再次就不过多的叙述了。
 
 ## 4.参考文献
